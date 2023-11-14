@@ -38,10 +38,7 @@ const Topbar = () => {
               alt="profile"
               className="h-14 w-14 rounded-full"
             />
-            <div className="flex flex-col">
-              <p className="body-bold">{user.name}</p>
-              <p className="small-regular text-light-3">@{user.username}</p>
-            </div>
+           
           </Link>
         </div>
       </div>
