@@ -1,6 +1,9 @@
 import { ID, Query } from 'appwrite';
-import { INewPost, INewUser } from "@/types";
+import { INewPost, INewUser, IUpdatePost } from "@/types";
 import { account, appwriteConfig, avatars, databases, storage } from './config';
+
+
+// User-related functionalities
 
 export async function createUserAccount(user:INewUser) {
 
@@ -94,6 +97,9 @@ export async function signOutAccount() {
   }
 }
 
+
+// Post-related functionalities
+
 export async function createPost(post: INewPost) {
   try {
     
@@ -108,14 +114,10 @@ export async function createPost(post: INewPost) {
     if(!fileUrl) {
       deleteFile(uploadedFile.$id);
        throw Error;}
-
-
-    // deal with the tags
+ 
 
     const tags = post.tags?.replace(/ /g, '').split(',') || [];
 
-
-    //finally save the new post to the database
 
     const newPost = await databases.createDocument(
       appwriteConfig.databaseId,
@@ -143,7 +145,6 @@ export async function createPost(post: INewPost) {
   }
 }
 
-//upload file to appwrite storage (cloud)
 export async function uploadFile(file: File) {
   try {
     const uploadedFile = await storage.createFile(
@@ -250,5 +251,117 @@ export async function deleteSavedPost(savedRecordId: string) {
     return { status: "Ok" };
   } catch (error) {
     console.log(error);
+  }
+}
+
+export async function getPostById(postId: string) {
+  try {
+    const post = await databases.getDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.postCollectionId,
+      postId
+    );
+
+    if (!post) throw Error;
+
+    return post;
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+export async function updatePost(post: IUpdatePost) {
+  const hasFileToUpdate = post.file.length > 0;
+
+  try {
+    // Initialize image object with existing data
+    let image = {
+      imageUrl: post.imageUrl,
+      imageId: post.imageId,
+    };
+
+    // If there's a new file to update
+    if (hasFileToUpdate) {
+      // Upload the new file to appwrite storage
+      const uploadedFile = await uploadFile(post.file[0]);
+
+      // Check if file upload failed
+      if (!uploadedFile) {
+        throw new Error("Failed to upload file");
+      }
+
+      // Get the URL of the newly uploaded file
+      const fileUrl = getFilePreview(uploadedFile.$id);
+
+      // If file URL retrieval fails, delete the uploaded file and throw an error
+      if (!fileUrl) {
+        await deleteFile(uploadedFile.$id);
+        throw new Error("Failed to get file preview URL");
+      }
+
+      // Update image object with new file details
+      image = { ...image, imageUrl: fileUrl, imageId: uploadedFile.$id };
+    }
+
+    // Convert tags into an array
+    const tags = post.tags?.replace(/ /g, "").split(",") || [];
+
+    // Update the post in the database with new/updated information
+    const updatedPost = await databases.updateDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.postCollectionId,
+      post.postId,
+      {
+        caption: post.caption,
+        imageUrl: image.imageUrl,
+        imageId: image.imageId,
+        location: post.location,
+        tags: tags,
+      }
+    );
+
+    // If the update operation fails
+    if (!updatedPost) {
+      // If there was a new file uploaded, delete it
+      if (hasFileToUpdate) {
+        await deleteFile(image.imageId);
+      }
+      throw new Error("Failed to update post");
+    }
+
+    // If there was a new file uploaded, safely delete the old file after a successful update
+    if (hasFileToUpdate) {
+      await deleteFile(post.imageId);
+    }
+
+    return updatedPost; // Return the updated post
+  } catch (error) {
+    console.log(error); // Log any errors that occur during the process
+  }
+}
+export async function deletePost(postId?: string, imageId?: string) {
+  // If either postId or imageId is missing, exit the function
+  if (!postId || !imageId) return;
+
+  try {
+    // Delete the post from the database
+    const statusCode = await databases.deleteDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.postCollectionId,
+      postId
+    );
+
+    // If deletion fails, throw an error
+    if (!statusCode) {
+      throw new Error("Failed to delete post from database");
+    }
+
+    // Delete the associated image file
+    await deleteFile(imageId);
+
+    // Return status indicating successful deletion
+    return { status: "Ok" };
+  } catch (error) {
+    console.log(error); // Log any errors that occur during the process
   }
 }
