@@ -98,4 +98,3 @@ const Explore = () => {
 }
 
 export default Explore
-Explore

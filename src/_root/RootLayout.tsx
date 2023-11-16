@@ -14,6 +14,7 @@ const RootLayout = () => {
         <Outlet />
       </section>
 
+
       <Bottombar />
     </div>
   );
