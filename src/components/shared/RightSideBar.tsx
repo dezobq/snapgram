@@ -1,8 +1,6 @@
-import React from 'react'
-
 const RightSideBar = () => {
   return (
-    <div className='rightsidebar'>
+    <div className='topbar'>
       <h3>Top Creators</h3>
     </div>
   )
